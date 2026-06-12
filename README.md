@@ -1,15 +1,18 @@
 # secure-pg-query
 
-Safe, **read-only** PostgreSQL queries for AI agents and humans.
+Safe, **read-only** SQL queries for AI agents and humans — **PostgreSQL** and
+**MySQL / MariaDB**.
 
-Point an AI assistant (or yourself) at a PostgreSQL database and let it run
-queries — **without** risking a write, even when the database user has full
-edit permissions. Two layers of defense:
+Point an AI assistant (or yourself) at a database and let it run queries —
+**without** risking a write, even when the database user has full edit
+permissions. Two layers of defense:
 
 1. **Read-only session (authoritative).** Every query runs inside a
-   `READ ONLY` transaction. PostgreSQL itself rejects any `INSERT` / `UPDATE` /
-   `DELETE` / DDL with `cannot execute ... in a read-only transaction` — no
-   string parsing can be tricked into allowing a write.
+   `READ ONLY` transaction. The database itself rejects any
+   `INSERT` / `UPDATE` / `DELETE` / DDL — no string parsing can be tricked into
+   allowing a write:
+   - PostgreSQL: `cannot execute ... in a read-only transaction`
+   - MySQL/MariaDB: `Cannot execute statement in a READ ONLY transaction` (1792)
 2. **Query validator (defense in depth).** A string filter rejects anything
    that is not a read query, blocks stacked statements, comment-evasion, and
    dangerous functions (`pg_read_file`, `dblink`, `pg_sleep`, …) before it ever
@@ -31,7 +34,8 @@ pipx install git+https://github.com/Pipefehecar/secure-pg-query
 pip install git+https://github.com/Pipefehecar/secure-pg-query
 ```
 
-Requires Python 3.10+ and `psycopg2-binary` (installed automatically).
+Requires Python 3.10+. Drivers `psycopg2-binary` (PostgreSQL) and `PyMySQL`
+(MySQL) are installed automatically.
 
 ## Configure
 
@@ -40,13 +44,24 @@ secure-pg-query --init
 ```
 
 This creates `~/.config/secure-pg-query/connections.json` with `chmod 600` and
-example connections. Edit it with your real databases:
+example connections. Edit it with your real databases. Set `engine` to
+`postgres` (default) or `mysql`:
 
 ```json
 {
-  "mydb": {
+  "mypg": {
+    "engine": "postgres",
     "host": "localhost",
     "port": 5432,
+    "database": "my_database",
+    "user": "readonly_user",
+    "password": "secret",
+    "env": "localhost (local)"
+  },
+  "mymysql": {
+    "engine": "mysql",
+    "host": "localhost",
+    "port": 3306,
     "database": "my_database",
     "user": "readonly_user",
     "password": "secret",
@@ -54,6 +69,9 @@ example connections. Edit it with your real databases:
   }
 }
 ```
+
+`engine` accepts `postgres`/`postgresql`/`pg` and `mysql`/`mariadb`. Omitting it
+defaults to `postgres`.
 
 Credentials live in your user config directory — **never** in the repo. Override
 the location with `SECURE_PG_CONFIG=/path/to/connections.json` if you prefer.
@@ -64,8 +82,9 @@ the location with `SECURE_PG_CONFIG=/path/to/connections.json` if you prefer.
 # List configured connections (never prints credentials)
 secure-pg-query --list
 
-# Run a query
-secure-pg-query mydb "SELECT id, email, created_at FROM users ORDER BY created_at DESC LIMIT 5"
+# Run a query (works the same on Postgres or MySQL)
+secure-pg-query mypg "SELECT id, email, created_at FROM users ORDER BY created_at DESC LIMIT 5"
+secure-pg-query mymysql "SHOW TABLES"
 
 # JSON output (handy for scripts / agents)
 secure-pg-query mydb "SELECT COUNT(*) FROM users" --json
@@ -115,6 +134,9 @@ python -m pytest
   user-friendly first filter. Do not rely on the validator alone.
 - `EXPLAIN ANALYZE` of a writing statement is blocked by the keyword filter and
   by the read-only session.
+- MySQL-specific exfiltration vectors (`INTO OUTFILE`, `INTO DUMPFILE`,
+  `LOAD_FILE`, `BENCHMARK`, `SLEEP`) are blocked by the validator. The read-only
+  transaction blocks all writes on both engines.
 - This tool does not sandbox the network — a `readonly_user` role with no
   superuser and no `SELECT` on sensitive tables is still your responsibility.
 - Found a hole? Open an issue. Validator gaps are bugs.

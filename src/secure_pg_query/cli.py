@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
             print("No connections configured. Run: secure-pg-query --init")
             return 0
         for c in conns:
-            print(f"{c['name']:<16} | {c['database']:<16} | {c['env']}")
+            print(f"{c['name']:<16} | {c['engine']:<10} | {c['database']:<16} | {c['env']}")
         return 0
 
     if not args.connection or args.query is None:
@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         return _err(f"Rejected query: {reason}")
 
     try:
-        db_config = get_connection(args.connection)
+        engine, db_config = get_connection(args.connection)
     except (FileNotFoundError, PermissionError, KeyError, ValueError, RuntimeError) as e:
         return _err(str(e))
 
@@ -105,6 +105,7 @@ def main(argv: list[str] | None = None) -> int:
         result = run_query(
             db_config,
             args.query,
+            engine=engine,
             statement_timeout_ms=args.timeout_ms,
             max_rows=args.max_rows,
         )

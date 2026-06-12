@@ -16,8 +16,18 @@ from pathlib import Path
 
 REQUIRED_KEYS = ("host", "port", "database", "user", "password")
 
+SUPPORTED_ENGINES = {
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "pg": "postgres",
+    "mysql": "mysql",
+    "mariadb": "mysql",
+}
+DEFAULT_ENGINE = "postgres"
+
 EXAMPLE_CONFIG = {
-    "local": {
+    "local_postgres": {
+        "engine": "postgres",
         "host": "localhost",
         "port": 5432,
         "database": "my_database",
@@ -25,13 +35,14 @@ EXAMPLE_CONFIG = {
         "password": "change_me",
         "env": "localhost (local)",
     },
-    "prod_readonly": {
-        "host": "my-db.example.com",
-        "port": 5432,
-        "database": "prod_db",
+    "local_mysql": {
+        "engine": "mysql",
+        "host": "localhost",
+        "port": 3306,
+        "database": "my_database",
         "user": "readonly_user",
         "password": "change_me",
-        "env": "AWS RDS (remote)",
+        "env": "localhost (local)",
     },
 }
 
@@ -77,11 +88,20 @@ def load_config(path: Path | None = None) -> dict:
     return data
 
 
-def get_connection(connection_name: str, path: Path | None = None) -> dict:
-    """Return the validated config for a single connection.
+def normalize_engine(raw: str | None) -> str:
+    """Map a user-supplied engine name to a canonical 'postgres' or 'mysql'."""
+    key = (raw or DEFAULT_ENGINE).strip().lower()
+    if key not in SUPPORTED_ENGINES:
+        supported = ", ".join(sorted(set(SUPPORTED_ENGINES.values())))
+        raise ValueError(f"Unsupported engine '{raw}'. Supported: {supported}.")
+    return SUPPORTED_ENGINES[key]
 
-    Strips non-connection metadata (like ``env``) so the result can be passed
-    straight to ``psycopg2.connect``.
+
+def get_connection(connection_name: str, path: Path | None = None) -> tuple[str, dict]:
+    """Return ``(engine, cfg)`` for a single connection.
+
+    ``engine`` is canonicalized ('postgres' or 'mysql'). ``cfg`` is stripped of
+    metadata (``env``, ``engine``) so it can be passed straight to the driver.
     """
     data = load_config(path)
     if connection_name not in data:
@@ -95,8 +115,10 @@ def get_connection(connection_name: str, path: Path | None = None) -> dict:
         raise ValueError(
             f"Connection '{connection_name}' is missing keys: {', '.join(missing)}"
         )
-    cfg.pop("env", None)  # metadata, not a psycopg2 param
-    return cfg
+    engine = normalize_engine(cfg.pop("engine", None))
+    cfg.pop("env", None)  # metadata, not a driver param
+    cfg["port"] = int(cfg["port"])
+    return engine, cfg
 
 
 def list_connections(path: Path | None = None) -> list[dict]:
@@ -107,6 +129,9 @@ def list_connections(path: Path | None = None) -> list[dict]:
         out.append(
             {
                 "name": name,
+                "engine": SUPPORTED_ENGINES.get(
+                    str(cfg.get("engine", DEFAULT_ENGINE)).lower(), "?"
+                ),
                 "database": cfg.get("database", "?"),
                 "env": cfg.get("env", ""),
             }

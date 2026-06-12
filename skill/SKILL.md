@@ -1,14 +1,15 @@
 ---
 name: consulta-db
-description: Use this skill when the user wants to query, list, count, search, or analyze data from a PostgreSQL database. Triggers on phrases like "show me the latest users", "how many records are in", "list of products", "query the database", "what's in the table", "cuántos registros hay", "muéstrame los últimos", "consulta en la base de datos", or any natural-language question about stored data that implies a SELECT query.
+description: Use this skill when the user wants to query, list, count, search, or analyze data from a PostgreSQL or MySQL database. Triggers on phrases like "show me the latest users", "how many records are in", "list of products", "query the database", "what's in the table", "cuántos registros hay", "muéstrame los últimos", "consulta en la base de datos", or any natural-language question about stored data that implies a SELECT query.
 ---
 
-# Safe PostgreSQL Query
+# Safe SQL Query (PostgreSQL & MySQL)
 
 Translate natural-language requests into **read-only** SQL and run them with the
-`secure-pg-query` tool. The tool enforces safety at the database level (read-only
-session + statement timeout + row cap), so writes are impossible even if a query
-slips past — but you should still only ever generate `SELECT`/`WITH` read queries.
+`secure-pg-query` tool. It supports PostgreSQL and MySQL/MariaDB and enforces
+safety at the database level (read-only transaction + statement timeout + row
+cap), so writes are impossible even if a query slips past — but you should still
+only ever generate `SELECT`/`WITH` read queries.
 
 ## Prerequisite
 
@@ -23,7 +24,8 @@ secure-pg-query --init   # then edit ~/.config/secure-pg-query/connections.json
 
 ### Step 1 — Discover connections
 
-Never hardcode connection names. List them dynamically:
+Never hardcode connection names. List them dynamically — the output shows the
+engine (postgres/mysql) of each connection, which you need for Step 2:
 
 ```bash
 secure-pg-query --list
@@ -35,14 +37,19 @@ secure-pg-query --list
 
 ### Step 2 — Discover schema if needed
 
-Only when you don't know the table/column names:
+Only when you don't know the table/column names. Use the syntax for the
+connection's engine (from `--list`):
 
+**PostgreSQL:**
 ```bash
 secure-pg-query <connection> "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
+secure-pg-query <connection> "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '<table>' ORDER BY ordinal_position"
 ```
 
+**MySQL / MariaDB:**
 ```bash
-secure-pg-query <connection> "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '<table>' ORDER BY ordinal_position"
+secure-pg-query <connection> "SHOW TABLES"
+secure-pg-query <connection> "SHOW COLUMNS FROM <table>"
 ```
 
 Skip this if you already know the relevant structure.

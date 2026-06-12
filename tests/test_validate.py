@@ -87,3 +87,38 @@ def test_keyword_inside_string_is_fine():
 
 def test_blocks_empty():
     assert not ok("")
+
+
+# --- MySQL-specific ---
+
+def test_allows_show_tables():
+    assert ok("SHOW TABLES")
+
+
+def test_allows_describe():
+    assert ok("DESCRIBE users")
+
+
+def test_blocks_into_outfile():
+    assert not ok("SELECT * FROM users INTO OUTFILE '/tmp/dump.csv'")
+
+
+def test_blocks_into_dumpfile():
+    assert not ok("SELECT data FROM blobs INTO DUMPFILE '/tmp/x'")
+
+
+def test_blocks_load_file():
+    assert not ok("SELECT LOAD_FILE('/etc/passwd')")
+
+
+def test_blocks_benchmark():
+    assert not ok("SELECT BENCHMARK(100000000, MD5('x'))")
+
+
+def test_blocks_mysql_sleep():
+    assert not ok("SELECT SLEEP(10)")
+
+
+def test_allows_outfile_like_identifier():
+    # "outfile" only blocked when preceded by INTO; a column named like it is fine.
+    assert ok("SELECT id FROM exports WHERE status = 'done'")

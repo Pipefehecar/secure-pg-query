@@ -10,7 +10,10 @@ parsing alone.
 import re
 
 # Statements that read data and are safe to run inside a read-only session.
-_ALLOWED_STARTS = ("select", "with", "show", "explain", "table", "values")
+# Covers both PostgreSQL and MySQL/MariaDB read commands.
+_ALLOWED_STARTS = (
+    "select", "with", "show", "explain", "table", "values", "describe", "desc",
+)
 
 # Keyword blocklist as a secondary check. Matched on word boundaries so
 # legitimate identifiers like ``created_at`` or ``deleted_at`` are NOT blocked.
@@ -23,12 +26,19 @@ _FORBIDDEN = (
 _FORBIDDEN_RE = re.compile(r"\b(" + "|".join(_FORBIDDEN) + r")\b", re.IGNORECASE)
 
 # Functions that read the filesystem / open external connections / waste
-# resources — dangerous even inside a SELECT.
+# resources — dangerous even inside a SELECT. Covers PostgreSQL and MySQL.
 _DANGEROUS_FN = (
+    # PostgreSQL
     "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_stat_file",
     "lo_import", "lo_export", "dblink", "pg_sleep", "copy_from", "pg_terminate_backend",
+    # MySQL / MariaDB
+    "load_file", "benchmark", "sleep", "get_lock", "release_lock",
+    "sys_exec", "sys_eval", "master_pos_wait",
 )
 _DANGEROUS_FN_RE = re.compile(r"\b(" + "|".join(_DANGEROUS_FN) + r")\b", re.IGNORECASE)
+
+# MySQL file-write clauses inside a SELECT (e.g. SELECT ... INTO OUTFILE '/x').
+_INTO_FILE_RE = re.compile(r"\binto\s+(outfile|dumpfile)\b", re.IGNORECASE)
 
 
 def _strip_comments(query: str) -> str:
@@ -67,5 +77,8 @@ def is_safe_query(query: str) -> tuple[bool, str]:
     m = _DANGEROUS_FN_RE.search(cleaned)
     if m:
         return False, f"Forbidden function: {m.group(1)}."
+
+    if _INTO_FILE_RE.search(cleaned):
+        return False, "INTO OUTFILE/DUMPFILE is not allowed."
 
     return True, ""
