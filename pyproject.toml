@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "secure-pg-query"
+version = "0.1.0"
+description = "Safe, read-only PostgreSQL queries for AI agents and humans."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Pipefehecar" }]
+keywords = ["postgres", "postgresql", "readonly", "sql", "claude", "ai", "skill", "security"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Database",
+    "Topic :: Security",
+]
+dependencies = ["psycopg2-binary>=2.9"]
+
+[project.urls]
+Homepage = "https://github.com/Pipefehecar/secure-pg-query"
+Repository = "https://github.com/Pipefehecar/secure-pg-query"
+
+[project.scripts]
+secure-pg-query = "secure_pg_query.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/secure_pg_query"]

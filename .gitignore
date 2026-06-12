@@ -1,0 +1,20 @@
+# Credentials — NEVER commit these
+connections.json
+*.env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.eggs/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

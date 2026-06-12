@@ -1,0 +1,18 @@
+{
+  "local": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "my_database",
+    "user": "readonly_user",
+    "password": "change_me",
+    "env": "localhost (local)"
+  },
+  "prod_readonly": {
+    "host": "my-db.example.com",
+    "port": 5432,
+    "database": "prod_db",
+    "user": "readonly_user",
+    "password": "change_me",
+    "env": "AWS RDS (remote)"
+  }
+}
